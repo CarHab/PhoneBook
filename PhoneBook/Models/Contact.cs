@@ -9,9 +9,9 @@ public class Contact
 
     [Required]
     [Column(TypeName="varchar(200)")]
-    public string Name { get; set; }
+    public string? Name { get; set; }
 
     [Required]
     [Column(TypeName = "varchar(50)")]
-    public string PhoneNumber { get; set; }
+    public string? PhoneNumber { get; set; }
 }
