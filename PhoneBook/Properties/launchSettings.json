@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PhoneBook": {
+      "commandName": "Project",
+      "commandLineArgs": "update carlos"
+    }
+  }
+}

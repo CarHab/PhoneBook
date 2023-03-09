@@ -29,8 +29,137 @@ internal class Program
                 ListAll();
                 break;
             case "search":
-                SearchContact(args[1]);
+                SearchContact(args.Length > 1 ? args[1] : "");
                 break;
+            case "update":
+                UpdateContact(args.Length > 1 ? args[1] : "");
+                break;
+            case "delete":
+                DeleteContact(args.Length > 1 ? args[1] : "");
+                break;
+        }
+    }
+
+    private static void DeleteContact(string name)
+    {
+        if (name.IsNullOrEmpty() || !name.All(Char.IsLetter))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Invalid name");
+            Console.ForegroundColor = ConsoleColor.White;
+            return;
+        }
+
+        List<Contact> result = DbAccess.SearchByName(name);
+
+        if (result.Count == 0)
+        {
+            Console.WriteLine("No contacts found with that name.");
+        }
+        else if (result.Count > 1)
+        {
+            Console.WriteLine("There's more than one contact with that name.");
+            for (int i = 0; i < result.Count; i++)
+            {
+                Console.WriteLine($"{i + 1} - {result[i].Name} - {result[i].PhoneNumber}");
+            }
+
+            bool valid = false;
+            int choice;
+            while (!valid)
+            {
+                Console.Write($"Specify which one({1}-{result.Count}): ");
+                string? choiceString = Console.ReadLine();
+                if (!int.TryParse(choiceString, out _))
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Invalid choice");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    continue;
+                }
+
+                choice = Convert.ToInt32(choiceString);
+
+
+
+                DbAccess.Delete(result[choice - 1]);
+
+                valid = true;
+            }
+        }
+        else
+        {
+            DbAccess.Delete(result[0]);
+        }
+    }
+
+    private static void UpdateContact(string name)
+    {
+        if (name.IsNullOrEmpty() || !name.All(Char.IsLetter))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Invalid name");
+            Console.ForegroundColor = ConsoleColor.White;
+            return;
+        }
+
+        List<Contact> result = DbAccess.SearchByName(name);
+
+        ContactUpdateModel contactUpdate = new();
+
+        if (result.Count == 0)
+        {
+            Console.WriteLine("No contacts found with that name.");
+        }
+        else if (result.Count > 1)
+        {
+            Console.WriteLine("There's more than one contact with that name.");
+            for (int i = 0; i < result.Count; i++)
+            {
+                Console.WriteLine($"{i + 1} - {result[i].Name} - {result[i].PhoneNumber}");
+            }
+
+            bool valid = false;
+            int choice;
+            while (!valid)
+            {
+                Console.Write($"Specify which one({1}-{result.Count}): ");
+                string? choiceString = Console.ReadLine();
+                if (!int.TryParse(choiceString, out _))
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Invalid choice");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    continue;
+                }
+
+                choice = Convert.ToInt32(choiceString);
+                contactUpdate.OldName = result[choice - 1].Name;
+                contactUpdate.OldNumber = result[choice - 1].PhoneNumber;
+
+                Console.Write("New name: ");
+                contactUpdate.NewName = Console.ReadLine();
+
+                Console.Write("New number: ");
+                contactUpdate.NewNumber = Console.ReadLine();
+
+                DbAccess.Update(contactUpdate);
+
+                valid = true;
+            }
+        }
+        else
+        {
+            contactUpdate.OldName = result[0].Name;
+            contactUpdate.OldNumber = result[0].PhoneNumber;
+
+            Console.Write("New name: ");
+            contactUpdate.NewName = Console.ReadLine();
+
+            Console.Write("New number: ");
+            contactUpdate.NewNumber = Console.ReadLine();
+
+            DbAccess.Update(contactUpdate);
         }
     }
 
@@ -41,9 +170,10 @@ internal class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("Specify a name");
             Console.ForegroundColor = ConsoleColor.White;
+            return;
         }
 
-        List<ContactDTO> result = DbAccess.SearchByName(name);
+        List<Contact> result = DbAccess.SearchByName(name);
 
         if (result.Count == 0)
         {
@@ -53,7 +183,7 @@ internal class Program
 
         foreach (var item in result)
         {
-            Console.WriteLine($"{item.Name} - {item.Number}");
+            Console.WriteLine($"{item.Name} - {item.PhoneNumber}");
         }
     }
 
@@ -72,15 +202,13 @@ internal class Program
 
     private static void ListAll()
     {
-        List<ContactDTO> result = DbAccess.LoadAll();
+        List<Contact> result = DbAccess.LoadAll();
 
-        foreach (ContactDTO item in result)
+        foreach (Contact item in result)
         {
-            Console.WriteLine($"{item.Name} - {item.Number}");
+            Console.WriteLine($"{item.Name} - {item.PhoneNumber}");
         }
     }
-
-
 }
 
 public class DbAccess
@@ -100,18 +228,13 @@ public class DbAccess
         }
     }
 
-    public static List<ContactDTO> LoadAll()
+    public static List<Contact> LoadAll()
     {
         try
         {
             using PhoneBookContext context = new();
 
-            var list = context.Contacts
-                              .Select(p => new ContactDTO()
-                              {
-                                  Name = p.Name,
-                                  Number = p.PhoneNumber
-                              }).ToList();
+            var list = context.Contacts.ToList();
 
             return list;
         }
@@ -121,20 +244,33 @@ public class DbAccess
         }
     }
 
-    public static List<ContactDTO> SearchByName(string name)
+    public static List<Contact> SearchByName(string name)
     {
         using PhoneBookContext context = new();
 
         var list = context.Contacts
             .Where(n => n.Name == name)
-            .Select(p => new ContactDTO
-            {
-                Name = p.Name,
-                Number = p.PhoneNumber
-            })
             .ToList();
 
         return list;
+    }
+
+    public static void Update(ContactUpdateModel contactToUpdate)
+    {
+        using PhoneBookContext context = new();
+
+        Contact contact = context.Contacts.Single(c => c.Name == contactToUpdate.OldName && c.PhoneNumber == contactToUpdate.OldNumber);
+        contact.Name = contactToUpdate.NewName;
+        contact.PhoneNumber = contactToUpdate.NewNumber;
+        context.SaveChanges();
+    }
+
+    public static void Delete(Contact contact)
+    {
+        using PhoneBookContext context = new();
+
+        context.Contacts.Remove(contact);
+        context.SaveChanges();
     }
 }
 
@@ -142,4 +278,12 @@ public class ContactDTO
 {
     public string? Name { get; set; }
     public string? Number { get; set; }
+}
+
+public class ContactUpdateModel
+{
+    public string? OldName { get; set; }
+    public string? OldNumber { get; set; }
+    public string? NewName { get; set; }
+    public string? NewNumber { get; set; }
 }
